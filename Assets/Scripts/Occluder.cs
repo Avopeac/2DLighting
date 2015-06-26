@@ -5,17 +5,19 @@ using System.Collections.Generic;
 [RequireComponent(typeof(PolygonCollider2D))]
 public class Occluder : MonoBehaviour
 {
+    public const string SUB_COLLIDER_NAME = "Convex collider";
+
     private List<GameObject> children;
     private new PolygonCollider2D collider;
-	private Vector2 position; 
+    private Vector2 position;
 
-	private int c = 0;
+    private int c = 0;
 
     // Use this for initialization
     void Start()
     {
         children = new List<GameObject>();
-		position = transform.position;
+        position = transform.position;
 
         collider = GetComponent<PolygonCollider2D>();
         SplitConcaveColliders(collider, 0);
@@ -23,96 +25,83 @@ public class Occluder : MonoBehaviour
 
     protected void SplitConcaveColliders(PolygonCollider2D collider, int pathIndex)
     {
-		c++;
 
-		if (c > 20)
-			return;
+        //Probably a hole in the mesh
+        if (collider.pathCount > 1)
+            Debug.LogWarning("More than one path in collider.");
 
+        //Get the conflicting vertex indices
         Vector2[] path = collider.GetPath(pathIndex);
-        int[] conflicts = GetConflictingVertices(ref path);
+        int[] conflicts = PolygonUtils.GetConcaveIndices(ref path);
 
-		//Do not proceed if there's no concave shape
-        if (conflicts.Length == 0)
+        int current = 0;
+        int next = 0;
+
+        //Do not proceed if there's no concave shape
+        if (conflicts.Length > 1)
+        {
+            current = conflicts[0];
+            next = conflicts[1];
+        }
+        else if (conflicts.Length > 0)
+        {
+            current = conflicts[0];
+            next = (conflicts[0] + 1) % path.Length;
+        }
+        else return;
+
+        //Get normal to plane
+        Vector2 normal = PolygonUtils.GetNormal(path[next], path[current]);
+
+        //Offset the plane and split along it
+        Plane plane = new Plane(normal, path[next]);
+        PolygonUtils.SplitResult splits = PolygonUtils.Split(plane, ref path);
+
+        //Do not proceed if the split didn't result in two valid colliders
+        if (splits.First.Length < 3 || splits.Second.Length < 3)
             return;
 
-		int current = conflicts [0];
-		int next = (current + 1) % path.Length;
+        //Create new colliders with our results
+        PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + c + " First");
+        PolygonCollider2D c2 = CreateSubCollider(splits.Second, SUB_COLLIDER_NAME + " " + c + " Second");
 
-        float dx = path[next].x - path[current].x;
-        float dy = path[next].y - path[current].y;
-        Vector2 normal = new Vector3(-dy, dx);
-
-        Plane plane = new Plane(normal, path[next]);
-        Vector2[][] splits = PolygonUtils.Split(plane, path, position);
-
-		//Do not proceed if the split didn't result in two valid colliders
-		if (splits [0].Length < 3 || splits [1].Length < 3)
-			return;
-
-		Debug.Log ("SLOW" + splits[0].Length + " " + splits[1].Length);
-	
-		PolygonCollider2D c1 = CreateSubCollider(splits[0]);
-        PolygonCollider2D c2 = CreateSubCollider(splits[1]);
-
-		//Keep going when it works
+        //Recursively create more if there are still concave shapes
         SplitConcaveColliders(c1, 0);
         SplitConcaveColliders(c2, 0);
 
-
-
+        //Remove old concave colliders
+        if (collider.transform.parent == this.transform)
+            GameObject.Destroy(collider.gameObject);
+        else if (collider.transform == this.transform)
+            collider.enabled = false;
     }
 
     protected PolygonCollider2D CreateSubCollider(Vector2[] path, string name = "Collider")
     {
+        //Create a new child with the same position
         GameObject child = new GameObject();
         child.transform.parent = this.transform;
-		child.transform.position = this.transform.position;
-		child.name = name;
-		children.Add(child);
+        child.transform.position = this.transform.position;
+        child.name = name;
 
+        //Add a collider
         PolygonCollider2D collider = child.AddComponent<PolygonCollider2D>();
         collider.SetPath(0, path);
+
+        //Add to the list off sub-colliders
+        children.Add(child);
 
         return collider;
     }
 
     void OnDisable()
     {
+        //Destroy every sub-collider
         foreach (GameObject child in children)
         {
             GameObject.Destroy(child);
         }
 
         children.Clear();
-    }
-
-    protected int[] GetConflictingVertices(ref Vector2[] path)
-    {
-
-        Vector3 cross = Vector3.zero;
-        List<int> negative = new List<int>();
-        List<int> positive = new List<int>();
-
-        int length = path.Length;
-
-        Vector3 a, b;
-        for (int i = 0; i < length; ++i)
-        {
-            a = path[(i + 2) % length] - path[(i + 1) % length];
-            b = path[(i + 1) % length] - path[i];
-
-            cross = Vector3.Cross(a, b);
-
-            if (cross.z < 0)
-            {
-                negative.Add(i);
-            }
-            else
-            {
-                positive.Add(i);
-            }
-        }
-
-        return negative.Count > positive.Count ? positive.ToArray() : negative.ToArray();
     }
 }
