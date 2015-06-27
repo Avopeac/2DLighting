@@ -2,29 +2,42 @@
 using System.Collections;
 using System.Collections.Generic;
 
+/// <summary>
+/// An occluder is put on any game object that should cast shadows in 2D space. 
+/// Author: Andreas Larsson
+/// </summary>
 [RequireComponent(typeof(PolygonCollider2D))]
 public class Occluder : MonoBehaviour
 {
     public const string SUB_COLLIDER_NAME = "Convex collider";
 
-    private List<GameObject> children;
-    private new PolygonCollider2D collider;
-    private Vector2 position;
-
-    private int c = 0;
+    private List<GameObject> children = new List<GameObject>();
+    private int counter = 0;
 
     // Use this for initialization
     void Start()
     {
-        children = new List<GameObject>();
-        position = transform.position;
-
-        collider = GetComponent<PolygonCollider2D>();
-        SplitConcaveColliders(collider, 0);
+        //TODO: Maybe call this from a baker that does this for all colliders on build.
+        Split();
     }
 
+    /// <summary>
+    /// Starts to split the polygon collider into convex shapes.
+    /// </summary>
+    public void Split()
+    {
+        SplitConcaveColliders(GetComponent<PolygonCollider2D>(), 0);
+    }
+
+    /// <summary>
+    /// Recursively breaks down concave polygons collider shapes into convex ones.
+    /// </summary>
+    /// <param name="collider">The collider to split. </param>
+    /// <param name="pathIndex">The path index, usually 0. </param>
     protected void SplitConcaveColliders(PolygonCollider2D collider, int pathIndex)
     {
+
+        counter++;
 
         //Probably a hole in the mesh
         if (collider.pathCount > 1)
@@ -62,8 +75,8 @@ public class Occluder : MonoBehaviour
             return;
 
         //Create new colliders with our results
-        PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + c + " First");
-        PolygonCollider2D c2 = CreateSubCollider(splits.Second, SUB_COLLIDER_NAME + " " + c + " Second");
+        PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + counter + " First");
+        PolygonCollider2D c2 = CreateSubCollider(splits.Second, SUB_COLLIDER_NAME + " " + counter + " Second");
 
         //Recursively create more if there are still concave shapes
         SplitConcaveColliders(c1, 0);
@@ -76,6 +89,12 @@ public class Occluder : MonoBehaviour
             collider.enabled = false;
     }
 
+    /// <summary>
+    /// Creates sub-colliders from a given path.
+    /// </summary>
+    /// <param name="path">The path that determines the shape of the collider. </param>
+    /// <param name="name">The name of the collider (Optional).</param>
+    /// <returns></returns>
     protected PolygonCollider2D CreateSubCollider(Vector2[] path, string name = "Collider")
     {
         //Create a new child with the same position
@@ -96,6 +115,7 @@ public class Occluder : MonoBehaviour
 
     void OnDisable()
     {
+        
         //Destroy every sub-collider
         foreach (GameObject child in children)
         {

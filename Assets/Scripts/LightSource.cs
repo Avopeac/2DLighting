@@ -45,9 +45,9 @@ public class LightSource : MonoBehaviour
     {
         IList<Mesh> shadows = new List<Mesh>();
 
-        foreach(Collider2D collider in colliders)
+        foreach (Collider2D collider in colliders)
         {
-            if (collider.gameObject.GetComponent<Occluder>() != null)
+          //  if (collider.gameObject.GetComponent<Occluder>() != null)
                 shadows.Add(CreateShadowGeometry(collider as PolygonCollider2D));
         }
 
@@ -56,87 +56,67 @@ public class LightSource : MonoBehaviour
 
     private Mesh CreateShadowGeometry(PolygonCollider2D collider)
     {
-		Vector2 position = collider.transform.position;
-		Vector2[] path = GetWorldPathPoints(ref collider, 0);
-		float[] angles = GetEdgeAngles(position, ref path);
-	
-		LinkedList<int> boundaries = GetBoundaryIndices(ref angles);
+        Vector2 position = collider.transform.position;
+        Vector2[] path = collider.GetPath(0);
 
-		//Collider is concave, no support
-		if (boundaries.Count == 2)
-		{
-			int first = boundaries.First.Value;
-			int last = boundaries.Last.Value;
+        float[] angles = GetEdgeAngles(position, ref path);
+        LinkedList<int> boundaries = GetBoundaryIndices(ref angles);
 
-		}
+        if (boundaries.Count > 1)
+        {
+            int first = boundaries.First.Value;
+            int last = boundaries.Last.Value;
+
+            GetLightRayToPosition(position + path[first], Color.green);
+            GetLightRayToPosition(position + path[last], Color.green);
+        }
 
         return null;
     }
 
-	protected Vector2[] GetWorldPathPoints(ref PolygonCollider2D collider, int pathIndex)
-	{
-		Vector2[] path = collider.GetPath(0);
+    protected LinkedList<int> GetBoundaryIndices(ref float[] angles)
+    {
+        LinkedList<int> indices = new LinkedList<int>();
+        int length = angles.Length;
 
-		//Support for scaling and rotation, preferrably this is not done every frame in the future
-		for(int i = 0; i < path.Length; ++i)
-		{
-			path[i] = collider.transform.rotation * path[i]; 
-			path[i].Scale(collider.transform.localScale);
-		}
+        int previous = length - 1;
+        Debug.Log("start");
+        for (int i = 0; i < length; ++i)
+        {
+            Debug.Log(angles[i]);
+            if (angles[i] < 0 && angles[previous] > 0 || angles[i] > 0 && angles[previous] < 0)
+                indices.AddLast(previous);
 
-		return path;
-	}
+            previous = i;
+        }
 
-	protected LinkedList<int> GetBoundaryIndices(ref float[] angles)
-	{
-		int length = angles.Length, index = 0;
-		LinkedList<int> indices = new LinkedList<int>();
-		for (int i = 1; i < length + 1; ++i)
-		{
-			//Wrap around
-			index = i % length;
+        return indices;
+    }
 
-			//Need to check both ways
-			if (angles[index] <= 0 && angles[i-1] > 0 || angles[index] > 0 && angles[i-1] <= 0)
-				indices.AddLast (i-1);
-		}
+    protected float[] GetEdgeAngles(Vector2 position, ref Vector2[] path)
+    {
+        int length = path.Length;
+        float[] angles = new float[length];
 
-		return indices;
-	}
+        //Set previous point
+        Vector2 previous = path[length - 1];
+        for (int i = 0; i < length; ++i)
+        {   
+            //Find current edge normal
+            Vector2 edgeNormal = PolygonUtils.GetNormal(previous, path[i]);
+            previous = path[i];
 
-	protected float[] GetEdgeAngles(Vector2 position, ref Vector2[] path)
-	{
-		int length = path.Length, index = 0;
-		float[] angles = new float[length];
+            //Cast a ray from the light to this point
+            Vector2 ray = GetLightRayToPosition(position + path[i], Color.cyan);
+            ray.Normalize();
 
-		for (int i = 1; i < length + 1; ++i)
-		{
-			//Wrap around
-			index = i % length;
-			
-			//Find current edge normal
-			Vector2 edgeNormal = GetEdgeNormal(path[i-1], path[index]);
-			
-			//Cast a ray from the light to this point
-			Vector2 ray = GetLightRayToPosition(position + path[index], Color.cyan).normalized;
-			
-			//Determine if edge is facing light or not, save the angles.
-			float ndotl = Vector2.Dot(ray, edgeNormal);
-			angles[index] = ndotl;
-		}
+            //Determine if edge is facing light or not, save the angles.
+            float ndotl = Vector2.Dot(ray, edgeNormal);
+            angles[i] = ndotl;
+        }
 
-		return angles;
-	}
-
-	protected Vector2 GetEdgeNormal(Vector2 v1, Vector2 v2)
-	{
-		//Find normal to edge
-		float nx = v2.y - v1.y;
-		float ny = v2.x - v1.x;
-		
-		//Create the edge normal
-		return new Vector2(nx, -ny).normalized;
-	}
+        return angles;
+    }
 
     protected Vector2 GetLightRayToPosition(Vector2 position, Color color)
     {
