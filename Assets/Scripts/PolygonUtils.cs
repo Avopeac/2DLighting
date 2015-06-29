@@ -9,65 +9,70 @@ using System.Collections.Generic;
 public class PolygonUtils
 {
     //Two points are considered the "same" if the distance is less than this threshold
-    public const float SQR_DIST_THRESHOLD = 0.05f;
+    public const float SQR_DIST_THRESHOLD = 0.001f;
 
-    /// <summary>
-    /// A shape is determined by a path that is traced clockwise or counter-clockwise. This shape is split given some plane of which to split along.
-    /// </summary>
-    /// <param name="split">The splitting plane. </param>
-    /// <param name="path">The path that determines the shape. </param>
-    /// <returns></returns>
-    public static SplitResult Split(Plane split, ref Vector2[] path)
-    {
-        List<Vector2> negative = new List<Vector2>();
-        List<Vector2> positive = new List<Vector2>();
+	//Three points are considered to be on the same line if the triangle area is less than this threshold
+	public const float COLLINEARITY_THRESHOLD = 0.001f;
+	
+	/// <summary>
+	/// A shape is determined by a path that is traced clockwise or counter-clockwise. This shape is split given some plane of which to split along.
+	/// </summary>
+	/// <param name="split">The splitting plane. </param>
+	/// <param name="path">The path that determines the shape. </param>
+	/// <returns></returns>
+	public static SplitResult Split (Plane split, ref Vector2[] path)
+	{
+		List<Vector2> back = new List<Vector2>();
+		List<Vector2> front = new List<Vector2>();
+		
+		int length = path.Length;
+		
+		//Set previous point in path
+		Vector2 previous = path[length - 1];
+		float prevDist = split.GetDistanceToPoint (previous);
 
-        int length = path.Length;
+		for (int i = 0; i < length; ++i) {
+			Vector2 current = path[i];
+			float currDist = split.GetDistanceToPoint(current);
 
-        //Set previous point in path
-        Vector2 previous = path[length - 1];
-        for (int i = 0; i < length; ++i)
-        {
+			float pointDist;
 
-            //Set current point in path
-            Vector2 current = path[i];
+			if (prevDist < 0) 
+			{
+				if(currDist < 0)
+				{
+					back.Add(current);
+				} else {
 
-            bool sideCurrent = split.GetSide(current);
-            bool sidePrevious = split.GetSide(previous);
+					//Add intersection points
+					Vector2 point = PlaneIntersection(split, previous, current, out pointDist);
+					back.Add(point);
+					front.Add(point);
+					front.Add (current);
+				}
+			} else {
+			
+				if (currDist >= 0)
+				{
+					front.Add(current);
+				}else {
 
-            if (sideCurrent != sidePrevious)
-            {
+					//Add intersection point
+					Vector2 point = PlaneIntersection(split, previous, current, out pointDist);
+					back.Add(point);
+					back.Add(current);
+					front.Add(point);
+				}
+			}
 
-                //Create a ray from the two points on different sides of the plane
-                Vector2 direction = current - previous;
-                direction.Normalize();
-                Ray ray = new Ray(current, direction);
+			previous = current; prevDist = currDist;
 
-                //See where the ray intersects the plane
-                float distance;
-                split.Raycast(ray, out distance);
+			RemoveDuplicates(ref front, SQR_DIST_THRESHOLD);
+			RemoveDuplicates(ref front, SQR_DIST_THRESHOLD);
+		}
 
-                //Collect the point and add it to both shapes
-                Vector2 point = ray.GetPoint(distance);
-                negative.Add(point);
-                positive.Add(point);
-            }
-
-            //Check which side our current point is on and add it
-            if (sideCurrent)
-                positive.Add(current);
-            else
-                negative.Add(current);
-
-            previous = current;
-        }
-
-        //Remove any duplicates in both shapes
-        RemoveDuplicates(ref positive, SQR_DIST_THRESHOLD);
-        RemoveDuplicates(ref negative, SQR_DIST_THRESHOLD);
-
-        return new SplitResult(positive.ToArray(), negative.ToArray());
-    }
+		return new SplitResult(front.ToArray(), back.ToArray());
+	}
 
     /// <summary>
     /// Remove duplicates in a list of points. Two points are considered the same if the distance between them is below some given threshold.
@@ -91,7 +96,9 @@ public class PolygonUtils
             {
                 Vector2 dist = path[i] - path[j];
                 if (dist.sqrMagnitude < threshold)
+				{
                     remove = true;
+				}
 
                 j++;
             }
@@ -151,25 +158,31 @@ public class PolygonUtils
     /// </summary>
     /// <param name="path">The path that determines the shape. </param>
     /// <returns>The indices in the path. </returns>
-    public static int[] GetConcaveIndices(ref Vector2[] path)
+    public static int[] GetConcaveIndices(ref Vector2[] path, float collinearThreshold)
     {
+		int length = path.Length;
 
         Vector3 cross = Vector3.zero;
         List<int> negative = new List<int>();
         List<int> positive = new List<int>();
 
-        int length = path.Length;
-
-        Vector3 a, b;
+        Vector3 ab, bc;
         for (int i = 0; i < length; ++i)
         {
             int vertIndex = (i + 1) % length;
 
-            //Two edges at a time
-            a = path[(i + 2) % length] - path[vertIndex];
-            b = path[vertIndex] - path[i];
+			Vector3 a = path[(i + 2) % length];
+			Vector3 b = path[vertIndex];
+			Vector3 c = path[i];
 
-            cross = Vector3.Cross(a, b);
+			if (PolygonUtils.TriangleArea(a,b,c) < collinearThreshold)
+				continue;
+
+            //Two edges at a time
+            ab = path[(i + 2) % length] - path[vertIndex];
+            bc = path[vertIndex] - path[i];
+
+            cross = Vector3.Cross(ab, bc);
 
             //Save the cross product between these edges
             if (cross.z < 0)
@@ -181,4 +194,45 @@ public class PolygonUtils
         //The one with least elements is the list with our conflicting points
         return negative.Count > positive.Count ? positive.ToArray() : negative.ToArray();
     }
+
+	/// <summary>
+	/// Returns a point where a line intersects the given plane.
+	/// </summary>
+	/// <returns>The intersection point.</returns>
+	/// <param name="plane">Plane.</param>
+	/// <param name="start">Start point.</param>
+	/// <param name="end">End point.</param>
+	public static Vector2 PlaneIntersection(Plane plane, Vector2 start, Vector2 end, out float distance)
+	{
+		//Create a new ray from start to end
+		Ray ray = new Ray(start, end - start);
+
+		//How far along the ray do we intersect the plane?
+		plane.Raycast (ray, out distance);
+
+		//Return that point
+		return ray.GetPoint(distance);
+	}
+
+	/// <summary>
+	/// Area of a triangle given three points. Useful for telling if three points are collinear (on the same line).
+	/// </summary>
+	/// <returns>The area. </returns>
+	/// <param name="a">First point. </param>
+	/// <param name="b">Second point. </param>
+	/// <param name="c">Third point. </param>
+	public static float TriangleArea(Vector3 a, Vector3 b, Vector3 c)
+	{
+		Vector3 ab = a - b;
+		Vector3 bc = b - c;
+		Vector3 ac = a - c;
+
+		float d0 = ab.magnitude;
+		float d1 = bc.magnitude;
+		float d2 = ac.magnitude;
+
+		//Using Heron's formula
+		float s = (d0 + d1 + d2) * 0.5f;
+		return Mathf.Sqrt (s * (s - d0) * (s - d1) * (s - d2)); 
+	}
 }

@@ -78,14 +78,14 @@ public class LightSource : MonoBehaviour
     {
         LinkedList<int> indices = new LinkedList<int>();
         int length = angles.Length;
-
         int previous = length - 1;
-        Debug.Log("start");
+        
         for (int i = 0; i < length; ++i)
         {
-            Debug.Log(angles[i]);
             if (angles[i] < 0 && angles[previous] > 0 || angles[i] > 0 && angles[previous] < 0)
+			{
                 indices.AddLast(previous);
+			}
 
             previous = i;
         }
@@ -107,7 +107,7 @@ public class LightSource : MonoBehaviour
             previous = path[i];
 
             //Cast a ray from the light to this point
-            Vector2 ray = GetLightRayToPosition(position + path[i], Color.cyan);
+            Vector2 ray = GetLightRayToPosition(position + path[i], Color.clear);
             ray.Normalize();
 
             //Determine if edge is facing light or not, save the angles.

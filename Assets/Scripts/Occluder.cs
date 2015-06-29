@@ -39,13 +39,9 @@ public class Occluder : MonoBehaviour
 
         counter++;
 
-        //Probably a hole in the mesh
-        if (collider.pathCount > 1)
-            Debug.LogWarning("More than one path in collider.");
-
         //Get the conflicting vertex indices
         Vector2[] path = collider.GetPath(pathIndex);
-        int[] conflicts = PolygonUtils.GetConcaveIndices(ref path);
+		int[] conflicts = PolygonUtils.GetConcaveIndices(ref path, PolygonUtils.COLLINEARITY_THRESHOLD);
 
         int current = 0;
         int next = 0;
@@ -70,17 +66,16 @@ public class Occluder : MonoBehaviour
         Plane plane = new Plane(normal, path[next]);
         PolygonUtils.SplitResult splits = PolygonUtils.Split(plane, ref path);
 
-        //Do not proceed if the split didn't result in two valid colliders
-        if (splits.First.Length < 3 || splits.Second.Length < 3)
-            return;
+		if (splits.First.Length < 3 || splits.Second.Length < 3)
+			return;
 
         //Create new colliders with our results
         PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + counter + " First");
         PolygonCollider2D c2 = CreateSubCollider(splits.Second, SUB_COLLIDER_NAME + " " + counter + " Second");
 
         //Recursively create more if there are still concave shapes
-        SplitConcaveColliders(c1, 0);
-        SplitConcaveColliders(c2, 0);
+       	SplitConcaveColliders(c1, 0);
+       	SplitConcaveColliders(c2, 0);
 
         //Remove old concave colliders
         if (collider.transform.parent == this.transform)
