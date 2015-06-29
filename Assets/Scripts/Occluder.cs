@@ -39,23 +39,21 @@ public class Occluder : MonoBehaviour
 
         counter++;
 
+		if (counter > 20)
+			return;
+
         //Get the conflicting vertex indices
         Vector2[] path = collider.GetPath(pathIndex);
 		int[] conflicts = PolygonUtils.GetConcaveIndices(ref path, PolygonUtils.COLLINEARITY_THRESHOLD);
 
         int current = 0;
         int next = 0;
-
+	
         //Do not proceed if there's no concave shape
-        if (conflicts.Length > 1)
+		if (conflicts.Length > 0)
         {
             current = conflicts[0];
-            next = conflicts[1];
-        }
-        else if (conflicts.Length > 0)
-        {
-            current = conflicts[0];
-            next = (conflicts[0] + 1) % path.Length;
+			next = (conflicts[0] + 1) % path.Length;
         }
         else return;
 
@@ -66,22 +64,36 @@ public class Occluder : MonoBehaviour
         Plane plane = new Plane(normal, path[next]);
         PolygonUtils.SplitResult splits = PolygonUtils.Split(plane, ref path);
 
-		if (splits.First.Length < 3 || splits.Second.Length < 3)
-			return;
+		//Recursively create more if there are still concave shapes, break down first shape
+		if (splits.First.Length > 2)
+		{
+			if(splits.First.Length == 3 && PolygonUtils.IsZeroArea(splits.First[0], splits.First[1], splits.First[2]))
+			{
+				//Do not create a new one if this is a zero area triangle
+			} else 
+			{
+				PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + counter + " First");
+				SplitConcaveColliders(c1, 0);
+			}
+		}
 
-        //Create new colliders with our results
-        PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + counter + " First");
-        PolygonCollider2D c2 = CreateSubCollider(splits.Second, SUB_COLLIDER_NAME + " " + counter + " Second");
-
-        //Recursively create more if there are still concave shapes
-       	SplitConcaveColliders(c1, 0);
-       	SplitConcaveColliders(c2, 0);
+		//Break down second shape
+		if (splits.Second.Length > 2) {
+			if(splits.Second.Length == 3 && PolygonUtils.IsZeroArea(splits.Second[0], splits.Second[1], splits.Second[2]))
+			{	
+				//Do not create a new one if this is a zero area triangle
+			} else 
+			{
+				PolygonCollider2D c2 = CreateSubCollider (splits.Second, SUB_COLLIDER_NAME + " " + counter + " Second");
+				SplitConcaveColliders (c2, 0);
+			}
+		}
 
         //Remove old concave colliders
-        if (collider.transform.parent == this.transform)
-            GameObject.Destroy(collider.gameObject);
-        else if (collider.transform == this.transform)
-            collider.enabled = false;
+		if (collider.transform.parent == this.transform)
+			GameObject.Destroy (collider.gameObject);
+		else if (collider.transform == this.transform)
+			collider.enabled = false;
     }
 
     /// <summary>

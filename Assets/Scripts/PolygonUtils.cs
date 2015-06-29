@@ -9,7 +9,7 @@ using System.Collections.Generic;
 public class PolygonUtils
 {
     //Two points are considered the "same" if the distance is less than this threshold
-    public const float SQR_DIST_THRESHOLD = 0.001f;
+    public const float SQR_DIST_THRESHOLD = 0.01f;
 
 	//Three points are considered to be on the same line if the triangle area is less than this threshold
 	public const float COLLINEARITY_THRESHOLD = 0.001f;
@@ -68,8 +68,11 @@ public class PolygonUtils
 			previous = current; prevDist = currDist;
 
 			RemoveDuplicates(ref front, SQR_DIST_THRESHOLD);
-			RemoveDuplicates(ref front, SQR_DIST_THRESHOLD);
+			RemoveDuplicates(ref back, SQR_DIST_THRESHOLD);
 		}
+
+		//RemoveZeroArea (ref front, COLLINEARITY_THRESHOLD);
+		//RemoveZeroArea (ref back, COLLINEARITY_THRESHOLD);
 
 		return new SplitResult(front.ToArray(), back.ToArray());
 	}
@@ -81,10 +84,10 @@ public class PolygonUtils
     /// <param name="threshold">Distance comparison. </param>
     private static void RemoveDuplicates(ref List<Vector2> path, float threshold)
     {
-        if (path == null)
+        if (path == null || path.Count == 0)
             return;
 
-        //Loop the path
+		//Loop the path
         int i = 1;
         while (i < path.Count)
         {
@@ -212,6 +215,18 @@ public class PolygonUtils
 
 		//Return that point
 		return ray.GetPoint(distance);
+	}
+
+	/// <summary>
+	/// Determines if the triangle that spans between the points a b and c has zero area (collinear).
+	/// </summary>
+	/// <returns><c>true</c> if zero area; otherwise, <c>false</c>.</returns>
+	/// <param name="a">The first point.</param>
+	/// <param name="b">The second point.</param>
+	/// <param name="c">The third point.</param>
+	public static bool IsZeroArea(Vector3 a, Vector3 b, Vector3 c)
+	{
+		return TriangleArea(a,b,c) < COLLINEARITY_THRESHOLD;
 	}
 
 	/// <summary>
