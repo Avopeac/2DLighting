@@ -10,7 +10,9 @@ using System.Collections.Generic;
 public class Occluder : MonoBehaviour
 {
     public const string SUB_COLLIDER_NAME = "Convex collider";
+	public const int STD_PATH_IDX = 0;
 
+	//Hold sub colliders in a list
     private List<GameObject> children = new List<GameObject>();
     private int counter = 0;
 
@@ -26,7 +28,7 @@ public class Occluder : MonoBehaviour
     /// </summary>
     public void Split()
     {
-        SplitConcaveColliders(GetComponent<PolygonCollider2D>(), 0);
+        SplitConcaveColliders(GetComponent<PolygonCollider2D>(), STD_PATH_IDX);
     }
 
     /// <summary>
@@ -36,11 +38,8 @@ public class Occluder : MonoBehaviour
     /// <param name="pathIndex">The path index, usually 0. </param>
     protected void SplitConcaveColliders(PolygonCollider2D collider, int pathIndex)
     {
-
+		//For naming
         counter++;
-
-		if (counter > 20)
-			return;
 
         //Get the conflicting vertex indices
         Vector2[] path = collider.GetPath(pathIndex);
@@ -73,7 +72,7 @@ public class Occluder : MonoBehaviour
 			} else 
 			{
 				PolygonCollider2D c1 = CreateSubCollider(splits.First, SUB_COLLIDER_NAME + " " + counter + " First");
-				SplitConcaveColliders(c1, 0);
+				SplitConcaveColliders(c1, STD_PATH_IDX);
 			}
 		}
 
@@ -85,7 +84,7 @@ public class Occluder : MonoBehaviour
 			} else 
 			{
 				PolygonCollider2D c2 = CreateSubCollider (splits.Second, SUB_COLLIDER_NAME + " " + counter + " Second");
-				SplitConcaveColliders (c2, 0);
+				SplitConcaveColliders (c2, STD_PATH_IDX);
 			}
 		}
 
