@@ -24,6 +24,7 @@ public class LightSource : MonoBehaviour
 
     //Keeps children with shadow geometry
     private List<GameObject> geometries;
+    private int activeCounter = 0;
 
     // Use this for initialization
     void Start()
@@ -86,23 +87,29 @@ public class LightSource : MonoBehaviour
     private void CreateShadowGeometries(int count, ref Collider2D[] colliders)
     {
         //Deactivate unused shadow geometry
-        int i = geometries.Count - 1;
-        while (count < geometries.Count && i >= 0)
+        if (activeCounter > count)
         {
-            if (geometries[i].activeInHierarchy)
-                geometries[i].SetActive(false);
-
-            i--;
+            for (int i = count; i <= activeCounter; ++i)
+            {
+                if (geometries[i].activeInHierarchy)
+                {
+                    geometries[i].SetActive(false);
+                    activeCounter--;
+                }
+            }
         }
 
-        for (i = 0; i < count; ++i)
+        //Activate the geometry
+        for (int i = 0; i < count; ++i)
         {
-            //Activate the geometry
             GameObject obj = geometries[i];
             obj.transform.position = Vector3.zero;
 
             if (!obj.activeInHierarchy)
+            {
                 obj.SetActive(true);
+                activeCounter++;
+            }
 
             MeshFilter filter = obj.GetComponent<MeshFilter>();
             Mesh mesh = filter.sharedMesh;
