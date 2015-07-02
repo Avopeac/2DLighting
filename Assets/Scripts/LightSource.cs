@@ -101,6 +101,11 @@ public class LightSource : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Creates the shadow geometry mesh from collider data and our light source.
+    /// </summary>
+    /// <param name="mesh">The mesh to be updated. </param>
+    /// <param name="collider">The collider which occludes the light. </param>
     private void CreateShadowGeometry(ref Mesh mesh, PolygonCollider2D collider)
     {
 
@@ -127,10 +132,11 @@ public class LightSource : MonoBehaviour
         }
 
         index = 0;
+        //Euler-Poincare gives us 3/2 times vertex count indices, each triangle has 3 indices
         int[] indices = new int[(int)(1.5f * vertCount)];
-  
         for (int i = 0; i < indices.Length; i += 3)
         {
+            //The winding is different for every other triangle
             if (index % 2 == 0)
             {
                 indices[i + 0] = index + 0;
