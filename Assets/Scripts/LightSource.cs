@@ -24,12 +24,14 @@ public class LightSource : MonoBehaviour
 
     //Keeps children with shadow geometry
     private List<GameObject> geometries;
+    private LinkedList<float> boundaries;
     private int activeCounter = 0;
 
     // Use this for initialization
     void Start()
     {
         position = new Vector2(transform.position.x, transform.position.y);
+        boundaries = new LinkedList<float>();
         visibleOccluders = new Collider2D[shadowCapacity];
         geometries = new List<GameObject>(shadowCapacity);
 
@@ -115,7 +117,8 @@ public class LightSource : MonoBehaviour
             Mesh mesh = filter.sharedMesh;
 
             //Send old mesh object and the visible occluder
-            CreateShadowGeometry(ref mesh, visibleOccluders[i] as PolygonCollider2D);
+            PolygonCollider2D collider = visibleOccluders[i] as PolygonCollider2D;
+            CreateShadowGeometry(ref mesh, ref collider);
 
             //Update mesh
             filter.sharedMesh = mesh;
@@ -127,19 +130,17 @@ public class LightSource : MonoBehaviour
     /// </summary>
     /// <param name="mesh">The mesh to be updated. </param>
     /// <param name="collider">The collider which occludes the light. </param>
-    private void CreateShadowGeometry(ref Mesh mesh, PolygonCollider2D collider)
+    private void CreateShadowGeometry(ref Mesh mesh, ref PolygonCollider2D collider)
     {
-
-        mesh.Clear(false);
 
         Vector2 position = collider.transform.position;
         Vector2[] path = collider.GetPath(0);
 
         float[] angles = GetEdgeAngles(position, ref path);
-        LinkedList<int> boundaries = GetBoundaryIndices(ref angles);
+        int[] boundaries = GetBoundaryIndices(ref angles);
 
-        //Find the vertices between boundary points
-        int vertCount = 2 * boundaries.Count;
+        //We have double the amount of vertices since we project the shadow outward
+        int vertCount = 2 * boundaries.Length;
         Vector3[] vertices = new Vector3[vertCount];
 
         int index = 0;
@@ -179,28 +180,31 @@ public class LightSource : MonoBehaviour
     }
 
     /// <summary>
-    /// Gets the boundary indices.
+    /// Gets the start and end indices for projecting a shadow.
     /// </summary>
-    /// <returns>The boundary indices.</returns>
-    /// <param name="angles">Angles.</param>
-    protected LinkedList<int> GetBoundaryIndices(ref float[] angles)
+    /// <param name="angles">The edge angles of a path. The amount of angles should be the same length as the path. </param>
+    /// <returns>The boundary indices. </returns>
+    protected int[] GetBoundaryIndices(ref float[] angles)
     {
-        LinkedList<int> indices = new LinkedList<int>();
+    
+        //We know there's always 2 points to project shadow from
+        int[] boundaries = new int[2];
+        int count = 0;
 
         int length = angles.Length;
         int previous = length - 1;
-
+        //Find indices where edge angles go from positive to negative or vice versa 
         for (int i = 0; i < length; ++i)
         {
             if (angles[i] < 0 && angles[previous] > 0 || angles[i] > 0 && angles[previous] < 0)
             {
-                indices.AddLast(previous);
+                boundaries[count++] = previous;
             }
 
             previous = i;
         }
 
-        return indices;
+        return boundaries;
     }
 
     /// <summary>
