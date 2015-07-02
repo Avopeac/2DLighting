@@ -2,6 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 
+/// <summary>
+/// A light source detects occluders and create shadow geometry.
+/// </summary>
 public class LightSource : MonoBehaviour
 {
     [Header("General settings: ")]
@@ -9,13 +12,17 @@ public class LightSource : MonoBehaviour
     public bool isStatic = false;
 
     [Header("Shadow settings: ")]
+    public int shadowLayer;
     public string shadowName = "Shadow Child";
     public int shadowCapacity = 50;
     public float shadowProjectionRange = 100.0f;
     public Material shadowMaterial;
 
     [Header("Light settings: ")]
+    public int lightLayer;
     public float radius = 10.0f;
+    public float intensity = 1.0f;
+    public Color color = Color.white;
 
     //For updating visible occluders
     private Vector2 position;
@@ -24,16 +31,15 @@ public class LightSource : MonoBehaviour
 
     //Keeps children with shadow geometry
     private List<GameObject> geometries;
-    private LinkedList<float> boundaries;
     private int activeCounter = 0;
 
     // Use this for initialization
     void Start()
     {
         position = new Vector2(transform.position.x, transform.position.y);
-        boundaries = new LinkedList<float>();
         visibleOccluders = new Collider2D[shadowCapacity];
         geometries = new List<GameObject>(shadowCapacity);
+        gameObject.layer = lightLayer;
 
         //Add the disabled geometries in pool
         for (int i = 0; i < shadowCapacity; ++i)
@@ -46,6 +52,7 @@ public class LightSource : MonoBehaviour
         GameObject obj = new GameObject(name);
         obj.transform.SetParent(transform, false);
         obj.SetActive(false);
+        obj.layer = shadowLayer;
 
         MeshRenderer renderer = obj.AddComponent<MeshRenderer>();
         renderer.sharedMaterial = shadowMaterial;
