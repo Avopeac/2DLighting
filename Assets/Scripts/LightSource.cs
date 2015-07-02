@@ -4,50 +4,51 @@ using System.Collections.Generic;
 
 public class LightSource : MonoBehaviour
 {
-    //Light source data, projection range should be determined by screen space in future
-    public float radius = 10.0f;
-    public float projectionRange = 10.0f;
-    private Vector2 position;
+    [Header("General settings: ")]
+    public float updateFrequency = 2.0f;
+    public bool isStatic = false;
 
-    //Enable debuggers 
-    public bool debugger = false;
+    [Header("Shadow settings: ")]
+    public string shadowName = "Shadow Child";
+    public int shadowCapacity = 50;
+    public float shadowProjectionRange = 100.0f;
+    public Material shadowMaterial;
+
+    [Header("Light settings: ")]
+    public float radius = 10.0f;
 
     //For updating visible occluders
-    public float updateFrequency = 2.0f;
+    private Vector2 position;
+    private Collider2D[] visibleOccluders;
     private float timer = 0;
 
     //Keeps children with shadow geometry
-    private const int SHADOW_CAPACITY = 10;
     private List<GameObject> geometries;
-
-    //The material for shadow geometry
-    public Material shadowMaterial;
 
     // Use this for initialization
     void Start()
     {
         position = new Vector2(transform.position.x, transform.position.y);
-        geometries = new List<GameObject>(SHADOW_CAPACITY);
+        visibleOccluders = new Collider2D[shadowCapacity];
+        geometries = new List<GameObject>(shadowCapacity);
 
-        for (int i = 0; i < SHADOW_CAPACITY; ++i)
-        {
-            geometries.Add(CreateShadowChild("Shadow child" + i));
-        }
+        //Add the disabled geometries in pool
+        for (int i = 0; i < shadowCapacity; ++i)
+            geometries.Add(CreateShadowChild(shadowName + i));
     }
 
     private GameObject CreateShadowChild(string name)
     {
-        Mesh mesh = new Mesh();
-        mesh.MarkDynamic();
 
         GameObject obj = new GameObject(name);
-        //obj.transform.parent = transform;
+        obj.transform.SetParent(transform, false);
         obj.SetActive(false);
 
         MeshRenderer renderer = obj.AddComponent<MeshRenderer>();
         renderer.sharedMaterial = shadowMaterial;
 
         MeshFilter filter = obj.AddComponent<MeshFilter>();
+        Mesh mesh = new Mesh();
         filter.sharedMesh = mesh;
 
         return obj;
@@ -55,49 +56,62 @@ public class LightSource : MonoBehaviour
 
     void Update()
     {
-
+       
         //Update 2D position
         position.Set(transform.position.x, transform.position.y);
 
         //Update occluders
         if (timer >= updateFrequency)
         {
-            CreateShadowGeometries(GetColliders());
+            //Find occluders
+            int count = Physics2D.OverlapCircleNonAlloc(position, radius, visibleOccluders);
+            CreateShadowGeometries(count, ref visibleOccluders);
             timer = 0;
         }
 
         timer += Time.deltaTime;
+
+        //Very ugly way to make them static
+        if (isStatic)
+        {
+            timer -= Time.deltaTime + 1.0f;
+        }
     }
 
-    private void CreateShadowGeometries(Collider2D[] colliders)
+    /// <summary>
+    /// Create multiple shadow geometries with some given occluders.
+    /// </summary>
+    /// <param name="count">The amount of colliders. </param>
+    /// <param name="colliders">The current collider results. </param>
+    private void CreateShadowGeometries(int count, ref Collider2D[] colliders)
     {
-
-       //while (colliders.Length > geometries.Count)
-       // {
-       //     geometries.Add(CreateShadowChild("Extended shadow child"));
-       // }
-
+        //Deactivate unused shadow geometry
         int i = geometries.Count - 1;
-        while (colliders.Length < geometries.Count && i >= 0)
+        while (count < geometries.Count && i >= 0)
         {
-            geometries[i].SetActive(false);
-            
+            if (geometries[i].activeInHierarchy)
+                geometries[i].SetActive(false);
+
             i--;
         }
 
-        i = 0;
-        foreach (Collider2D collider in colliders)
+        for (i = 0; i < count; ++i)
         {
+            //Activate the geometry
             GameObject obj = geometries[i];
-            // obj.transform.position = -this.transform.position;
-            obj.SetActive(true);
+            obj.transform.position = Vector3.zero;
+
+            if (!obj.activeInHierarchy)
+                obj.SetActive(true);
+
             MeshFilter filter = obj.GetComponent<MeshFilter>();
             Mesh mesh = filter.sharedMesh;
 
-            CreateShadowGeometry(ref mesh, collider as PolygonCollider2D);
-            filter.sharedMesh = mesh;
+            //Send old mesh object and the visible occluder
+            CreateShadowGeometry(ref mesh, visibleOccluders[i] as PolygonCollider2D);
 
-            i++;
+            //Update mesh
+            filter.sharedMesh = mesh;
         }
     }
 
@@ -128,7 +142,7 @@ public class LightSource : MonoBehaviour
             Vector2 dir = pos - this.position;
 
             vertices[index++] = pos;
-            vertices[index++] = pos + projectionRange * dir;
+            vertices[index++] = pos + shadowProjectionRange * dir;
         }
 
         index = 0;
@@ -202,7 +216,7 @@ public class LightSource : MonoBehaviour
             previous = path[i];
 
             //Cast a ray from the light to this point
-            Vector2 ray = GetLightRayToPosition(position + path[i], Color.clear);
+            Vector2 ray = position + path[i] - this.position;
             ray.Normalize();
 
             //Determine if edge is facing light or not, save the angles.
@@ -211,20 +225,5 @@ public class LightSource : MonoBehaviour
         }
 
         return angles;
-    }
-
-    protected Vector2 GetLightRayToPosition(Vector2 position, Color color)
-    {
-        if (debugger)
-        {
-            Debug.DrawRay(this.position, position - this.position, color, 0.25f, false);
-        }
-
-        return position - this.position;
-    }
-
-    protected Collider2D[] GetColliders()
-    {
-        return Physics2D.OverlapCircleAll(position, radius);
     }
 }
