@@ -1,4 +1,4 @@
-﻿Shader "Custom/ShadowShader"
+﻿Shader "Custom/LightIntensityShader"
 {
 	Properties
 	{
@@ -66,7 +66,7 @@
 			{
 				fixed4 c = tex2D(_MainTex, IN.texcoord) * IN.color;
 				c.rgb *= c.a;
-				return c;
+				return fixed4(c.a, c.a, c.a, c.a);
 			}
 		ENDCG
 		}
