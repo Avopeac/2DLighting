@@ -1,28 +1,26 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-
+[AddComponentMenu("Patchwork/2D Point Light")]
 /// <summary>
 /// A light source detects occluders and create shadow geometry.
 /// </summary>
 public class LightSource : MonoBehaviour
 {
     [Header("General settings: ")]
+	public Material lightMaterial;
     public float updateFrequency = 2.0f;
     public bool isStatic = false;
 
     [Header("Shadow settings: ")]
-    public int shadowLayer;
-    public string shadowName = "Shadow Child";
     public int shadowCapacity = 50;
     public float shadowProjectionRange = 100.0f;
-    public Material shadowMaterial;
 
     [Header("Light settings: ")]
-    public int lightLayer;
     public float radius = 10.0f;
-    public float intensity = 1.0f;
-    public Color color = Color.white;
+	public float intensity = 1.0f;
+	public Color inner = Color.white;
+	public Color outer = Color.yellow;
 
     //For updating visible occluders
     private Vector2 position;
@@ -30,39 +28,72 @@ public class LightSource : MonoBehaviour
     private float timer = 0;
 
     //Keeps children with shadow geometry
-    private List<GameObject> geometries;
+    private List<Mesh> geometries;
     private int activeCounter = 0;
+
+	//The light mesh, can be switched out
+	private CustomPointLight customLight;
+	private Mesh customLightMesh;
 
     // Use this for initialization
     void Start()
     {
+		//Save 2D position
         position = new Vector2(transform.position.x, transform.position.y);
+
+		//Create new collections
         visibleOccluders = new Collider2D[shadowCapacity];
-        geometries = new List<GameObject>(shadowCapacity);
-        gameObject.layer = lightLayer;
+        geometries = new List<Mesh>(shadowCapacity);
+        
+        //Add expected amount of geometries to the pool
+        for (int i = 0; i < shadowCapacity; ++i) {
+			Mesh mesh = new Mesh();
+			mesh.MarkDynamic();
+			geometries.Add (mesh);
+		}
 
-        //Add the disabled geometries in pool
-        for (int i = 0; i < shadowCapacity; ++i)
-            geometries.Add(CreateShadowChild(shadowName + i));
+		//Create a new light mesh
+		customLight = new CustomPointLight ();
+		customLightMesh = customLight.CreateLightMesh (inner, outer, intensity, radius, 32);
+		CreateLightChild ();
     }
 
-    private GameObject CreateShadowChild(string name)
-    {
+	/// <summary>
+	/// Creates the light child.
+	/// </summary>
+	void CreateLightChild()
+	{
+		//Create the object that will hold the visible colored light
+		GameObject obj = new GameObject ();
+		MeshFilter filter = obj.AddComponent<MeshFilter> ();
+		MeshRenderer renderer = obj.AddComponent<MeshRenderer> ();
 
-        GameObject obj = new GameObject(name);
-        obj.transform.SetParent(transform, false);
-        obj.SetActive(false);
-        obj.layer = shadowLayer;
+		//Set as child to this light source
+		obj.transform.parent = this.transform;
+		obj.transform.position = this.transform.position;
+		obj.hideFlags = HideFlags.HideInHierarchy;
 
-        MeshRenderer renderer = obj.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = shadowMaterial;
+		filter.mesh = customLightMesh;
 
-        MeshFilter filter = obj.AddComponent<MeshFilter>();
-        Mesh mesh = new Mesh();
-        filter.sharedMesh = mesh;
+		//Copy the material to be able to set pass once
+		Material materialCopy = new Material (lightMaterial);
+		materialCopy.SetPass (2);
+		renderer.material = materialCopy;
+	}
 
-        return obj;
-    }
+	void OnRenderObject()
+	{
+		//Render each light
+		lightMaterial.SetPass(0);
+		Graphics.DrawMeshNow(customLightMesh, position, transform.rotation, 0);
+
+		//Then render all shadow geometry
+		for (int i = 0; i < activeCounter; ++i) {
+			lightMaterial.SetPass(1);
+
+			Graphics.DrawMeshNow(geometries[i], Matrix4x4.identity);
+		}
+	}
 
     void Update()
     {
@@ -96,39 +127,28 @@ public class LightSource : MonoBehaviour
     private void CreateShadowGeometries(int count, ref Collider2D[] colliders)
     {
         //Deactivate unused shadow geometry
-        if (activeCounter > count)
-        {
-            for (int i = count; i <= activeCounter; ++i)
-            {
-                if (geometries[i].activeInHierarchy)
-                {
-                    geometries[i].SetActive(false);
-                    activeCounter--;
-                }
-            }
-        }
+		while (activeCounter > count) {
+			activeCounter--;
+		}
 
         //Activate the geometry
         for (int i = 0; i < count; ++i)
         {
-            GameObject obj = geometries[i];
-            obj.transform.position = Vector3.zero;
+			if (count < activeCounter)
+            	activeCounter--;	
+			else if (count > activeCounter)
+				activeCounter++;
 
-            if (!obj.activeInHierarchy)
-            {
-                obj.SetActive(true);
-                activeCounter++;
-            }
-
-            MeshFilter filter = obj.GetComponent<MeshFilter>();
-            Mesh mesh = filter.sharedMesh;
+			//Get free mesh
+			Mesh mesh = geometries[i];
+			mesh.Clear();
 
             //Send old mesh object and the visible occluder
             PolygonCollider2D collider = visibleOccluders[i] as PolygonCollider2D;
             CreateShadowGeometry(ref mesh, ref collider);
 
             //Update mesh
-            filter.sharedMesh = mesh;
+            geometries[i] = mesh;
         }
     }
 
