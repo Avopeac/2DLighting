@@ -212,8 +212,12 @@ public class LightSource : MonoBehaviour
             Vector2 pos = position + path[i];
             Vector2 dir = pos - this.position;
 
+			float range = shadowProjectionRange - dir.magnitude;
+			if (range < 0)
+				range = 0;
+
             vertices[index++] = pos;
-            vertices[index++] = pos + shadowProjectionRange * dir;
+            vertices[index++] = pos + range * dir;
         }
 
         index = 0;
