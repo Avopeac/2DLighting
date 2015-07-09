@@ -4,6 +4,8 @@ using System.Collections;
 [AddComponentMenu("Patchwork/2D Light System")]
 public class LightSystem : MonoBehaviour {
 
+	public const string LIGHT_SOURCE_TAG = "Light Source";
+
 	[Header("General Settings:")]
 	public LayerMask mask;
 	public Material maskMaterial;
@@ -12,20 +14,33 @@ public class LightSystem : MonoBehaviour {
 	public Color color;
 
 	private RenderTexture lightMaskTexture;
+	private GameObject[] pointLightSources;
 
 	// Use this for initialization
 	void Start () {
-		lightMaskTexture = RenderTexture.GetTemporary (Screen.width,
-		                                               Screen.height,
-		                                               16,
-		                                               RenderTextureFormat.ARGB32,
-		                                               RenderTextureReadWrite.Default);
+		lightMaskTexture = RenderTexture.GetTemporary (Screen.width, Screen.height);
+		lightMaskTexture.antiAliasing = 8;
+		lightMaskTexture.filterMode = FilterMode.Trilinear;
+		lightMaskTexture.useMipMap = true;
+		lightMaskTexture.generateMips = true;
+
+
 		CreateLightCameraChild ();
 	}
 
 	void OnRenderImage(RenderTexture src, RenderTexture dst)
 	{
-		Graphics.Blit (src, dst, maskMaterial);
+		lightMaskTexture.DiscardContents ();
+
+		GameObject[] pointLightSources = GameObject.FindGameObjectsWithTag (LIGHT_SOURCE_TAG);
+	
+		foreach (GameObject pointLightSource in pointLightSources) {
+			RenderTexture lightMapTexture = pointLightSource.GetComponent<LightSource> ().lightMapTexture;
+			Graphics.Blit(lightMapTexture, lightMaskTexture, maskMaterial, 0); 
+		}
+
+		Graphics.Blit (src, lightMaskTexture, maskMaterial, 1);
+		Graphics.Blit (lightMaskTexture, dst);
 	}
 
 	void CreateLightCameraChild()
@@ -47,3 +62,4 @@ public class LightSystem : MonoBehaviour {
 		RenderTexture.ReleaseTemporary (lightMaskTexture);
 	}
 }
+

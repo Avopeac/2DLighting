@@ -8,15 +8,17 @@ using System.Collections.Generic;
 public class LightSource : MonoBehaviour
 {
     [Header("General settings: ")]
-	public Material lightMaterial;
+	public Camera mainCamera;
     public float updateFrequency = 2.0f;
     public bool isStatic = false;
 
     [Header("Shadow settings: ")]
+	public Material shadowMaterial;
     public int shadowCapacity = 50;
     public float shadowProjectionRange = 100.0f;
 
     [Header("Light settings: ")]
+	public Material lightMaterial;
     public float radius = 10.0f;
 	public float intensity = 1.0f;
 	public Color inner = Color.white;
@@ -34,6 +36,13 @@ public class LightSource : MonoBehaviour
 	//The light mesh, can be switched out
 	private CustomPointLight customLight;
 	private Mesh customLightMesh;
+
+	//Light camera
+	[HideInInspector]
+	public RenderTexture lightMapTexture;
+
+	[HideInInspector]
+	public Camera lightCamera;
 
     // Use this for initialization
     void Start()
@@ -55,13 +64,39 @@ public class LightSource : MonoBehaviour
 		//Create a new light mesh
 		customLight = new CustomPointLight ();
 		customLightMesh = customLight.CreateLightMesh (inner, outer, intensity, radius, 32);
+
+		//Screen size texture for this light
+		lightMapTexture = new RenderTexture (Screen.width, Screen.height, 0);
+		lightMapTexture.antiAliasing = 8;
+		lightMapTexture.filterMode = FilterMode.Trilinear;
+		lightMapTexture.useMipMap = true;
+		lightMapTexture.generateMips = true;
+
+		//Create child objects for a visible mesh and a camera to isolate single light sources
 		CreateLightChild ();
+		CreateCameraChild ();
     }
+
+	private void CreateCameraChild()
+	{
+		GameObject obj = new GameObject ();
+		Camera cam = obj.AddComponent<Camera> ();
+		cam.CopyFrom (mainCamera);
+		cam.backgroundColor = Color.black;
+		cam.cullingMask = 0;
+		cam.cullingMask = 1 << 10;
+		cam.targetTexture = lightMapTexture;
+
+		cam.transform.parent = this.transform;
+		cam.transform.position = mainCamera.transform.position;
+
+		lightCamera = cam;
+	}
 
 	/// <summary>
 	/// Creates the light child.
 	/// </summary>
-	void CreateLightChild()
+	private void CreateLightChild()
 	{
 		//Create the object that will hold the visible colored light
 		GameObject obj = new GameObject ();
@@ -77,21 +112,22 @@ public class LightSource : MonoBehaviour
 
 		//Copy the material to be able to set pass once
 		Material materialCopy = new Material (lightMaterial);
-		materialCopy.SetPass (2);
+		materialCopy.SetPass (0);
 		renderer.material = materialCopy;
 	}
 
 	void OnRenderObject()
 	{
+
+		//Follow main camera
+		lightCamera.transform.position = mainCamera.transform.position;
+
 		//Render each light
-		lightMaterial.SetPass(0);
-		Graphics.DrawMeshNow(customLightMesh, position, transform.rotation, 0);
+		Graphics.DrawMesh(customLightMesh, position, transform.rotation, lightMaterial, 10, lightCamera);
 
 		//Then render all shadow geometry
 		for (int i = 0; i < activeCounter; ++i) {
-			lightMaterial.SetPass(1);
-
-			Graphics.DrawMeshNow(geometries[i], Matrix4x4.identity);
+			Graphics.DrawMesh(geometries[i], Matrix4x4.identity, shadowMaterial, 10, lightCamera);
 		}
 	}
 
