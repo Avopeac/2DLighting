@@ -288,7 +288,7 @@ public class LightSource : MonoBehaviour
 			float plane = Vector2.Dot(edgeNormal, this.position + (position - this.position) * radius);
 		
 			//Sign determines back or front
-			if (Mathf.Sign(plane + d) > 0)
+			if (Mathf.Sign(plane + d) > 0.05f)
 			{
 			
 				if (!indices.Contains(prevIndex))

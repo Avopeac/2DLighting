@@ -26,8 +26,6 @@ public class LightSystem : MonoBehaviour {
 
 	void OnRenderImage(RenderTexture src, RenderTexture dst)
 	{
-		lightMaskTexture.DiscardContents ();
-
 		GameObject[] pointLightSources = GameObject.FindGameObjectsWithTag (LIGHT_SOURCE_TAG);
 	
 		foreach (GameObject pointLightSource in pointLightSources) {
@@ -45,15 +43,16 @@ public class LightSystem : MonoBehaviour {
 	private void CreateLightCameraChild()
 	{
 		GameObject obj = new GameObject ();
+		obj.transform.parent = this.transform;
+		obj.hideFlags = HideFlags.HideInHierarchy;
+
 		Camera cam = obj.AddComponent<Camera> ();
 		cam.CopyFrom (gameObject.GetComponent<Camera> ());
 		cam.clearFlags = CameraClearFlags.Color;
-		cam.backgroundColor = color;
+		cam.backgroundColor = Color.clear;
 		cam.targetTexture = lightMaskTexture;
 		cam.cullingMask = 1 << (int) Mathf.Log(mask.value, 2);
 
-		obj.transform.parent = this.transform;
-		obj.hideFlags = HideFlags.HideInHierarchy;
 	}
 }
 

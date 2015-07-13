@@ -7,7 +7,6 @@
 
 	SubShader
 	{
-		
 		Pass
 		{
 		

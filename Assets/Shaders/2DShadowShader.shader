@@ -18,7 +18,7 @@
 		Pass
 		{
 		
-			Blend OneMinusSrcAlpha Zero
+			Blend DstAlpha OneMinusSrcAlpha
 			
 			CGPROGRAM
 			#pragma vertex vert
