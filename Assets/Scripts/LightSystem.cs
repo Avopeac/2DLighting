@@ -8,23 +8,19 @@ public class LightSystem : MonoBehaviour {
 
 	[Header("General Settings:")]
 	public LayerMask mask;
-	public Material maskMaterial;
 
 	[Header("Ambient Settings: ")]
 	public Color color;
 
-	private RenderTexture lightMaskTexture;
+	[Header("Configuration: ")]
+	public Material lightMaskMaterial;
+	public RenderTexture lightMaskTexture;
+
 	private GameObject[] pointLightSources;
 
 	// Use this for initialization
 	void Start () {
 		lightMaskTexture = RenderTexture.GetTemporary (Screen.width, Screen.height);
-		lightMaskTexture.antiAliasing = 8;
-		lightMaskTexture.filterMode = FilterMode.Trilinear;
-		lightMaskTexture.useMipMap = true;
-		lightMaskTexture.generateMips = true;
-
-
 		CreateLightCameraChild ();
 	}
 
@@ -35,15 +31,18 @@ public class LightSystem : MonoBehaviour {
 		GameObject[] pointLightSources = GameObject.FindGameObjectsWithTag (LIGHT_SOURCE_TAG);
 	
 		foreach (GameObject pointLightSource in pointLightSources) {
-			RenderTexture lightMapTexture = pointLightSource.GetComponent<LightSource> ().lightMapTexture;
-			Graphics.Blit(lightMapTexture, lightMaskTexture, maskMaterial, 0); 
+			RenderTexture lightMapTexture = pointLightSource.GetComponent<LightSource> ().LightMap;
+			Graphics.Blit(lightMapTexture, lightMaskTexture, lightMaskMaterial, 0); 
 		}
 
-		Graphics.Blit (src, lightMaskTexture, maskMaterial, 1);
+		Graphics.Blit (src, lightMaskTexture, lightMaskMaterial, 1);
 		Graphics.Blit (lightMaskTexture, dst);
 	}
 
-	void CreateLightCameraChild()
+	/// <summary>
+	/// Creates the light camera child.
+	/// </summary>
+	private void CreateLightCameraChild()
 	{
 		GameObject obj = new GameObject ();
 		Camera cam = obj.AddComponent<Camera> ();
@@ -55,11 +54,6 @@ public class LightSystem : MonoBehaviour {
 
 		obj.transform.parent = this.transform;
 		obj.hideFlags = HideFlags.HideInHierarchy;
-	}
-
-	void OnDisable()
-	{
-		RenderTexture.ReleaseTemporary (lightMaskTexture);
 	}
 }
 

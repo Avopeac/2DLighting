@@ -10,8 +10,8 @@
 		
 		Pass
 		{
-
-			Blend SrcColor OneMinusDstColor
+		
+			Blend SrcAlpha One
 			
 			CGPROGRAM
 			#pragma vertex vert
@@ -45,8 +45,7 @@
 		
 		Pass
 		{
-
-			Blend SrcAlpha OneMinusSrcAlpha
+			Blend DstAlpha One
 			
 			CGPROGRAM
 			#pragma vertex vert
@@ -72,7 +71,7 @@
 
 			float4 frag(v2f IN) : SV_Target
 			{
-				return tex2D(_MainTex, IN.texcoord);;
+				return tex2D(_MainTex, IN.texcoord);
 			}
 			
 			ENDCG

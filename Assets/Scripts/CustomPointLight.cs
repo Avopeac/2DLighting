@@ -8,28 +8,21 @@ public class CustomPointLight
 		private Vector3[] vertices;
 		private Vector2[] uvs;
 		private int[] triangles;
-		private Color[] colors;
 
-		public Mesh CreateLightMesh (Color inner, Color outer, float intensity, float radius, int subdivisions)
+		public Mesh CreateLightMesh (float radius, int subdivisions)
 		{
 				vertices = new Vector3[subdivisions];
 				uvs = new Vector2[subdivisions];	
-				colors = new Color[subdivisions];
 				triangles = new int[subdivisions * 3];
 
 				vertices [0] = Vector3.zero;
-				uvs [0] = new Vector2 (0.5f, 0.5f);
-				colors [0] = new Color (inner.r, inner.g, inner.b, intensity);
+				uvs [0] = new Vector2 (0f, 0f);
 
 				float angle = 360.0f / (subdivisions - 1);
 
-				float normedHorizontal, normedVertical;
 				for (int i = 1; i < subdivisions; ++i) {
 						vertices [i] = Quaternion.AngleAxis (angle * (float)(i - 1), Vector3.back) * Vector3.up * radius;
-						normedHorizontal = (vertices [i].x + 1.0f) * 0.5f;
-						normedVertical = (vertices [i].y + 1.0f) * 0.5f;
-						uvs [i] = new Vector2 (normedHorizontal, normedVertical);
-						colors [i] = new Color (outer.r, outer.g, outer.b, 0);
+						uvs [i] = new Vector2 (1, 1);
 				}
 
 				int index;
@@ -48,7 +41,6 @@ public class CustomPointLight
 				mesh = new Mesh ();
 				mesh.vertices = vertices;
 				mesh.uv = uvs;
-				mesh.colors = colors;
 				mesh.triangles = triangles;
 
 				return mesh;

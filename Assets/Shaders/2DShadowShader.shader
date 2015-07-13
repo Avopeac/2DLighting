@@ -1,11 +1,5 @@
 ﻿Shader "Custom/2DShadowShader"
 {
-	Properties
-	{
-		[PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-		[MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
-	}
-
 	SubShader
 	{
 		Tags
@@ -23,6 +17,8 @@
 		
 		Pass
 		{
+		
+			Blend OneMinusSrcAlpha Zero
 			
 			CGPROGRAM
 			#pragma vertex vert
@@ -32,21 +28,14 @@
 			struct v2f
 			{
 				float4 vertex   : SV_POSITION;
-				fixed4 color    : COLOR;
-				half2 texcoord  : TEXCOORD0;
 			};
 			
 			v2f vert(appdata_full IN)
 			{
 				v2f OUT;
 				OUT.vertex = mul(UNITY_MATRIX_MVP, IN.vertex);
-				OUT.texcoord = IN.texcoord;
-				OUT.color = IN.color;
-			
 				return OUT;
 			}
-
-			sampler2D _MainTex;
 
 			fixed4 frag(v2f IN) : SV_Target
 			{

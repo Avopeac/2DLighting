@@ -2,8 +2,9 @@
 {
 	Properties
 	{
-		[PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-		[MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
+		_MainTex ("Sprite Texture", 2D) = "white" {}
+		_Inner("Inner color", Color) = (1,1,1,1)
+		_Outer("Outer color", Color) = (1,1,1,1)
 	}
 
 	SubShader
@@ -25,7 +26,7 @@
 		Pass
 		{
 		
-			Blend SrcAlpha OneMinusSrcAlpha
+			Blend SrcAlpha One
 			
 			CGPROGRAM
 			#pragma vertex vert
@@ -35,7 +36,6 @@
 			struct v2f
 			{
 				float4 vertex   : SV_POSITION;
-				fixed4 color    : COLOR;
 				half2 texcoord  : TEXCOORD0;
 			};
 			
@@ -44,16 +44,22 @@
 				v2f OUT;
 				OUT.vertex = mul(UNITY_MATRIX_MVP, IN.vertex);
 				OUT.texcoord = IN.texcoord;
-				OUT.color = IN.color;
 			
 				return OUT;
 			}
 
 			sampler2D _MainTex;
+			float4 _Inner;
+			float4 _Outer;
 
 			fixed4 frag(v2f IN) : SV_Target
-			{
-				return IN.color * IN.color.a * IN.color.a;
+			{			
+				float4 mask = tex2D(_MainTex, IN.texcoord);
+				
+				float4 inner = mask * _Inner;
+				float4 outer = mask * _Outer;
+				
+				return lerp(inner, outer, IN.texcoord.x);
 			}
 			
 			ENDCG
