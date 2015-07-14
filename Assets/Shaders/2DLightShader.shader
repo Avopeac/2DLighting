@@ -56,10 +56,13 @@
 			{			
 				float4 mask = tex2D(_MainTex, IN.texcoord);
 				
-				float4 inner = mask * _Inner;
-				float4 outer = mask * _Outer;
+				float4 inner = mask * float4(_Inner.rgb, 1);
+				float4 outer = mask * float4(_Outer.rgb, 1);
 				
-				return lerp(inner, outer, IN.texcoord.x);
+				float4 c = lerp(inner, outer, IN.texcoord.x);
+				float alpha = lerp(_Inner.a, _Outer.a, IN.texcoord.x);
+				
+				return float4(c.rgb, alpha);
 			}
 			
 			ENDCG

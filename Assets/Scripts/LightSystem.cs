@@ -21,6 +21,10 @@ public class LightSystem : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		lightMaskTexture = RenderTexture.GetTemporary (Screen.width, Screen.height);
+		//lightMaskTexture.useMipMap = true;
+		//lightMaskTexture.generateMips = true;
+		//lightMaskTexture.mipMapBias = 2;
+
 		CreateLightCameraChild ();
 	}
 

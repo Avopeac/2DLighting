@@ -61,8 +61,11 @@ public class LightSource : MonoBehaviour
 		CustomPointLight light = new CustomPointLight ();
 		customLightMesh = light.CreateLightMesh (radius, 32);
 
-		//Screen size texture for this light
+		//Screen size texture for this light, we use mipmaps to downsample and get some blur
 		LightMap = new RenderTexture (Screen.width, Screen.height, 0);
+		LightMap.generateMips = true;
+		LightMap.useMipMap = true;
+		LightMap.mipMapBias = 3;
 
 		//Create child objects for a visible mesh and a camera to isolate single light sources
 		CreateCameraChild ();
