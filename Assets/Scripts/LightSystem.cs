@@ -7,7 +7,6 @@ public class LightSystem : MonoBehaviour {
 	public const string LIGHT_SOURCE_TAG = "Light Source";
 
 	[Header("General Settings:")]
-	public LayerMask mask;
 	public Material lightMaskMaterial;
 
 	[Header("Ambient Settings: ")]

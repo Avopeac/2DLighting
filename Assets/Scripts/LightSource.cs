@@ -8,10 +8,13 @@ using System.Collections.Generic;
 /// </summary>
 public class LightSource : MonoBehaviour
 {
+	private const string LIGHT_CAMERA_NAME = "Light Camera";
+
     [Header("Configuration settings: ")]
 	public LightSystem lightSystem;
 	public Material shadowMaterial;
 	public Material lightMaterial;
+	public int lightLayer;
 	public int subdivisions = 32;
 	public int mipMapLevel = 2;
 
@@ -42,6 +45,11 @@ public class LightSource : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+
+		if (lightSystem == null)
+			Debug.LogError ("Light system cannot be set to null. ");
+
+
 		//Save 2D position
         position = new Vector2(transform.position.x, transform.position.y);
 		indices = new List<int> ();
@@ -87,7 +95,7 @@ public class LightSource : MonoBehaviour
 		Camera mainCamera = lightSystem.GetComponent<Camera> ();
 
 		//Create new child game object
-		GameObject obj = new GameObject ();
+		GameObject obj = new GameObject (LIGHT_CAMERA_NAME);
 		obj.transform.parent = transform;
 		obj.transform.position = mainCamera.transform.position;
 		obj.hideFlags = HideFlags.HideInHierarchy;
@@ -97,7 +105,7 @@ public class LightSource : MonoBehaviour
 		cam.CopyFrom (mainCamera);
 		cam.backgroundColor = Color.clear;
 		cam.cullingMask = 0;
-		cam.cullingMask = 1 << 10;
+		cam.cullingMask = 1 << lightLayer;
 		cam.targetTexture = LightMap;
 
 		lightCamera = cam;
@@ -110,11 +118,11 @@ public class LightSource : MonoBehaviour
 		properties.SetColor ("_Inner", inner);
 		properties.SetColor ("_Outer", outer);
 		properties.SetTexture ("_MainTex", lightCookie);
-		Graphics.DrawMesh (customLightMesh, position, transform.rotation, lightMaterial, 10, lightCamera, 0, properties);
+		Graphics.DrawMesh (customLightMesh, position, transform.rotation, lightMaterial, lightLayer, lightCamera, 0, properties);
 
 		//Then render all shadow geometry
 		for (int i = 0; i < activeCounter; ++i) {
-			Graphics.DrawMesh(geometries[i], Matrix4x4.identity, shadowMaterial, 10, lightCamera);
+			Graphics.DrawMesh(geometries[i], Matrix4x4.identity, shadowMaterial, lightLayer, lightCamera);
 		}
 	}
 
