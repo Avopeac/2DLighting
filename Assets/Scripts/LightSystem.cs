@@ -20,7 +20,7 @@ public class LightSystem : MonoBehaviour {
 
 		//For some reason the dst needs to be cleared because camera doesn't do it.
 		RenderTexture.active = dst;
-		GL.Clear(true, true, Color.clear);
+		GL.Clear(true, true, new Color(0,0,0, color.a));
 
 		GameObject[] pointLightSources = GameObject.FindGameObjectsWithTag (LIGHT_SOURCE_TAG);
 		int length = pointLightSources.Length;
@@ -29,6 +29,7 @@ public class LightSystem : MonoBehaviour {
 				Graphics.Blit(lightMapTexture, dst, lightMaskMaterial, 0);
 		}
 
+		lightMaskMaterial.SetColor ("_Ambient", color);
 		Graphics.Blit (src, dst, lightMaskMaterial, 1);
 	}
 }

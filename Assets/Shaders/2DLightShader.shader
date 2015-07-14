@@ -42,9 +42,9 @@
 			v2f vert(appdata_full IN)
 			{
 				v2f OUT;
+				
 				OUT.vertex = mul(UNITY_MATRIX_MVP, IN.vertex);
 				OUT.texcoord = IN.texcoord;
-			
 				return OUT;
 			}
 
@@ -61,7 +61,7 @@
 				
 				float4 c = lerp(inner, outer, IN.texcoord.x);
 				float alpha = lerp(_Inner.a, _Outer.a, IN.texcoord.x);
-				
+
 				return float4(c.rgb, alpha);
 			}
 			

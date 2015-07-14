@@ -67,10 +67,11 @@
 			}
 
 			sampler2D _MainTex;
+			float4 _Ambient;
 
 			float4 frag(v2f IN) : SV_Target
 			{
-				return tex2D(_MainTex, IN.texcoord);
+				return tex2D(_MainTex, IN.texcoord) + _Ambient;
 			}
 			
 			ENDCG
