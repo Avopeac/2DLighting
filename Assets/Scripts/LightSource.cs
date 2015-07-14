@@ -8,16 +8,19 @@ using System.Collections.Generic;
 /// </summary>
 public class LightSource : MonoBehaviour
 {
-    [Header("General settings: ")]
+    [Header("Configuration settings: ")]
 	public LightSystem lightSystem;
+	public Material shadowMaterial;
+	public Material lightMaterial;
+	public int subdivisions = 32;
+	public int mipMapLevel = 2;
 
     [Header("Shadow settings: ")]
-	public Material shadowMaterial;
     public int shadowCapacity = 50;
     public float shadowProjectionRange = 100.0f;
 
     [Header("Light settings: ")]
-	public Material lightMaterial;
+	public Texture lightCookie;
     public float radius = 10.0f;
 	public Color inner = Color.white;
 	public Color outer = Color.yellow;
@@ -25,18 +28,16 @@ public class LightSource : MonoBehaviour
 	//Declaring some things that will be used frequently
     private Vector2 position;
 	private List<int> indices;
+	private static MaterialPropertyBlock properties;
 
 	//For updating visible occluders
 	private int activeCounter = 0;
 	private List<Mesh> geometries;
 	private Collider2D[] visibleOccluders;
 	
-	//The light mesh
-	private Mesh customLightMesh;
-
-	//Light camera
 	public RenderTexture LightMap { get; private set; }
 	private Camera lightCamera;
+	private Mesh customLightMesh;
 
     // Use this for initialization
     void Start()
@@ -44,31 +45,38 @@ public class LightSource : MonoBehaviour
 		//Save 2D position
         position = new Vector2(transform.position.x, transform.position.y);
 		indices = new List<int> ();
-
+	
 		//Create new collections
         visibleOccluders = new Collider2D[shadowCapacity];
         geometries = new List<Mesh>(shadowCapacity);
-        
+	
         //Add expected amount of geometries to the pool
         for (int i = 0; i < shadowCapacity; ++i) {
 			Mesh mesh = new Mesh();
 			mesh.MarkDynamic();
-
 			geometries.Add (mesh);
 		}
 
 		//Create a new light mesh
 		CustomPointLight light = new CustomPointLight ();
-		customLightMesh = light.CreateLightMesh (radius, 32);
+		customLightMesh = light.CreateLightMesh (radius, subdivisions);
 
 		//Screen size texture for this light, we use mipmaps to downsample and get some blur
 		LightMap = new RenderTexture (Screen.width, Screen.height, 0);
 		LightMap.generateMips = true;
 		LightMap.useMipMap = true;
-		LightMap.mipMapBias = 3;
+		LightMap.mipMapBias = 2;
 
 		//Create child objects for a visible mesh and a camera to isolate single light sources
 		CreateCameraChild ();
+
+		//Single material with different properties
+		if (properties == null)
+			properties = new MaterialPropertyBlock ();
+
+		properties.AddColor ("_Inner", inner);
+		properties.AddColor ("_Outer", outer);
+		properties.AddTexture ("_MainTex", lightCookie);
     }
 
 	/// <summary>
@@ -87,7 +95,7 @@ public class LightSource : MonoBehaviour
 		//Create the camera to capture light source and shadows
 		Camera cam = obj.AddComponent<Camera> ();
 		cam.CopyFrom (mainCamera);
-		cam.backgroundColor = new Color(0,0,0,0);
+		cam.backgroundColor = Color.clear;
 		cam.cullingMask = 0;
 		cam.cullingMask = 1 << 10;
 		cam.targetTexture = LightMap;
@@ -97,13 +105,12 @@ public class LightSource : MonoBehaviour
 	
 	void OnRenderObject()
 	{
-		LightMap.DiscardContents (true, true);
-
 		//Render one light
-		lightMaterial.SetFloat ("_Radius", radius);
-		lightMaterial.SetColor ("_Inner", inner);
-		lightMaterial.SetColor ("_Outer", outer);
-		Graphics.DrawMesh (customLightMesh, position, transform.rotation, lightMaterial, 10, lightCamera);
+		properties.Clear ();
+		properties.SetColor ("_Inner", inner);
+		properties.SetColor ("_Outer", outer);
+		properties.SetTexture ("_MainTex", lightCookie);
+		Graphics.DrawMesh (customLightMesh, position, transform.rotation, lightMaterial, 10, lightCamera, 0, properties);
 
 		//Then render all shadow geometry
 		for (int i = 0; i < activeCounter; ++i) {
@@ -177,12 +184,13 @@ public class LightSource : MonoBehaviour
 
 		//We have double the amount of vertices since we project the shadow outward
 		int vertCount = 2 * indices.Length;
-		Vector3[] vertices = new Vector3[vertCount];
-		int[] triangles = new int[3 * (vertCount - 2)];
 
 		//Not enough vertices
 		if (vertCount < 2)
 			return;
+
+		Vector3[] vertices = new Vector3[vertCount];
+		int[] triangles = new int[3 * (vertCount - 2)];
 
 		//Sort the angles so that mesh build in correct order
 		SortAngles (position, ref indices, ref path);

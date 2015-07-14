@@ -8,55 +8,27 @@ public class LightSystem : MonoBehaviour {
 
 	[Header("General Settings:")]
 	public LayerMask mask;
+	public Material lightMaskMaterial;
 
 	[Header("Ambient Settings: ")]
 	public Color color;
 
-	[Header("Configuration: ")]
-	public Material lightMaskMaterial;
-	public RenderTexture lightMaskTexture;
-
 	private GameObject[] pointLightSources;
-
-	// Use this for initialization
-	void Start () {
-		lightMaskTexture = RenderTexture.GetTemporary (Screen.width, Screen.height);
-		//lightMaskTexture.useMipMap = true;
-		//lightMaskTexture.generateMips = true;
-		//lightMaskTexture.mipMapBias = 2;
-
-		CreateLightCameraChild ();
-	}
 
 	void OnRenderImage(RenderTexture src, RenderTexture dst)
 	{
+
+		//For some reason the dst needs to be cleared because camera doesn't do it.
+		RenderTexture.active = dst;
+		GL.Clear(true, true, Color.clear);
+
 		GameObject[] pointLightSources = GameObject.FindGameObjectsWithTag (LIGHT_SOURCE_TAG);
-	
-		foreach (GameObject pointLightSource in pointLightSources) {
-			RenderTexture lightMapTexture = pointLightSource.GetComponent<LightSource> ().LightMap;
-			Graphics.Blit(lightMapTexture, lightMaskTexture, lightMaskMaterial, 0); 
+		int length = pointLightSources.Length;
+		for (int i = 0; i < length; ++i) {
+				RenderTexture lightMapTexture = pointLightSources[i].GetComponent<LightSource> ().LightMap;
+				Graphics.Blit(lightMapTexture, dst, lightMaskMaterial, 0);
 		}
 
-		Graphics.Blit (src, lightMaskTexture, lightMaskMaterial, 1);
-		Graphics.Blit (lightMaskTexture, dst);
-	}
-
-	/// <summary>
-	/// Creates the light camera child.
-	/// </summary>
-	private void CreateLightCameraChild()
-	{
-		GameObject obj = new GameObject ();
-		obj.transform.parent = this.transform;
-		obj.hideFlags = HideFlags.HideInHierarchy;
-
-		Camera cam = obj.AddComponent<Camera> ();
-		cam.CopyFrom (gameObject.GetComponent<Camera> ());
-		cam.clearFlags = CameraClearFlags.Color;
-		cam.backgroundColor = Color.clear;
-		cam.targetTexture = lightMaskTexture;
-		cam.cullingMask = 1 << (int) Mathf.Log(mask.value, 2);
-
+		Graphics.Blit (src, dst, lightMaskMaterial, 1);
 	}
 }
-
