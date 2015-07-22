@@ -177,7 +177,7 @@ public class LightSource : MonoBehaviour
             geometries[i] = mesh;
         }
     }
-
+	
     /// <summary>
     /// Creates the shadow geometry mesh from collider data and our light source.
     /// </summary>
@@ -188,7 +188,7 @@ public class LightSource : MonoBehaviour
 
         Vector2 position = collider.transform.position;
         Vector2[] path = collider.GetPath(0);
-        int[] indices = GetShadowProjectionIndices(position, ref path);
+		int[] indices = GetBackVertices (position, ref path);//GetShadowProjectionIndices(position, ref path);
 
 		//We have double the amount of vertices since we project the shadow outward
 		int vertCount = 2 * indices.Length;
@@ -201,7 +201,7 @@ public class LightSource : MonoBehaviour
 		int[] triangles = new int[3 * (vertCount - 2)];
 
 		//Sort the angles so that mesh build in correct order
-		SortAngles (position, ref indices, ref path);
+		//SortAngles (position, ref indices, ref path);
 
 		int index = 0;
         foreach (int i in indices)
@@ -265,7 +265,7 @@ public class LightSource : MonoBehaviour
 				Vector2 prev = path [indices [i - 1]] - radiusPosition;
 				Vector2 curr = path [indices [i]] - radiusPosition;
 
-				if (Mathf.Atan2(prev.y, prev.x) > Mathf.Atan2(curr.y, curr.x)) {
+				if (Mathf.Atan2 (prev.y, prev.x) > Mathf.Atan2 (curr.y, curr.x)) {
 
 					int temp = indices [i];
 					indices [i] = indices [i - 1];
@@ -279,7 +279,7 @@ public class LightSource : MonoBehaviour
 
 		} while (length != 0);
 	}
-
+	
 	/// <summary>
 	/// Gets the shadow projection indices.
 	/// </summary>
@@ -322,4 +322,59 @@ public class LightSource : MonoBehaviour
 
         return indices.ToArray();
     }
+
+	private int[] GetBackVertices(Vector2 center, ref Vector2[] offsets)
+	{
+		Vector2 prev, curr, normal, dir, proj = this.position + (position - this.position) * radius; 
+		List<Edge> edges = new List<Edge> ();
+		int length = offsets.Length, i = length - 1;
+
+		prev = center + offsets [length - 1];
+		for (int j = 0; j < length; ++j) {
+
+			curr = center + offsets[j];
+			normal = PolygonUtils.GetNormal(prev, curr);
+			dir = prev - dir;
+
+			if (Vector2.Dot (dir.normalized, normal.normalized) > 0)
+			{
+				edges.Add(new Edge(i, j));
+			}
+
+			prev = curr;
+			i = j;
+		}
+
+		edges.Sort (delegate(Edge x, Edge y) {
+			if (x.FirstIndex == y.SecondIndex) return 1;
+			else if (x.SecondIndex == y.FirstIndex) return -1;
+			else return 0;
+		});
+
+		List<int> indices = new List<int> (edges.Count);
+		foreach (Edge e in edges) {
+			
+			if(!indices.Contains(e.FirstIndex))
+				indices.Add(e.FirstIndex);
+			
+			if(!indices.Contains(e.SecondIndex))
+				indices.Add(e.SecondIndex);
+		}
+
+		return indices.ToArray();
+	}
+
+	private struct Edge 
+	{
+		public int FirstIndex { get; private set; }
+		public int SecondIndex { get; private set; }
+
+		public Edge(int firstIndex, int secondIndex)
+		{
+			FirstIndex = firstIndex;
+			SecondIndex = secondIndex;
+		}
+	}
+
+
 }
