@@ -245,84 +245,11 @@ public class LightSource : MonoBehaviour
     }
 
 	/// <summary>
-	/// Sorts the angles.
+	/// Gets the back vertices.
 	/// </summary>
-	/// <param name="position">Position.</param>
-	/// <param name="indices">Indices.</param>
-	/// <param name="path">Path.</param>
-	protected void SortAngles(Vector2 position, ref int[] indices, ref Vector2[] path)
-	{
-		int length = indices.Length;
-
-		//The position on the radius in the direction from the light source to the occluder
-		Vector2 radiusPosition = this.position - (position - this.position) * radius;
-
-		do {
-			int n = 0;
-
-			for (int i = 1; i < length; ++i) {
-
-				Vector2 prev = path [indices [i - 1]] - radiusPosition;
-				Vector2 curr = path [indices [i]] - radiusPosition;
-
-				if (Mathf.Atan2 (prev.y, prev.x) > Mathf.Atan2 (curr.y, curr.x)) {
-
-					int temp = indices [i];
-					indices [i] = indices [i - 1];
-					indices [i - 1] = temp;
-
-					n = i;
-				}
-			}
-
-			length = n;
-
-		} while (length != 0);
-	}
-	
-	/// <summary>
-	/// Gets the shadow projection indices.
-	/// </summary>
-	/// <returns>The shadow projection indices.</returns>
-	/// <param name="position">Position.</param>
-	/// <param name="path">Path.</param>
-    protected int[] GetShadowProjectionIndices(Vector2 position, ref Vector2[] path)
-    {
-        int length = path.Length;
-
-		//Clear old indices
-		indices.Clear ();
-	
-        //Set previous point
-		int prevIndex = length - 1;
-        for (int i = 0; i < length; ++i)
-        {
-            //Find current edge normal
-            Vector2 edgeNormal = PolygonUtils.GetNormal(path[prevIndex], path[i]);
-
-			//Find offset and plane equation
-			float d = Vector2.Dot(edgeNormal, path[i] - position);
-
-			//Eliminate popping by finding points at the maximum radius
-			float plane = Vector2.Dot(edgeNormal, this.position + (position - this.position) * radius);
-		
-			//Sign determines back or front
-			if (Mathf.Sign(plane + d) > 0.05f)
-			{
-			
-				if (!indices.Contains(prevIndex))
-					indices.Add(prevIndex);
-
-				if (!indices.Contains(i))
-					indices.Add(i);
-			} 
-		
-			prevIndex = i;
-        }
-
-        return indices.ToArray();
-    }
-
+	/// <returns>The back vertices.</returns>
+	/// <param name="center">Center.</param>
+	/// <param name="offsets">Offsets.</param>
 	private int[] GetBackVertices(Vector2 center, ref Vector2[] offsets)
 	{
 		Vector2 prev, curr, normal, dir, proj = this.position + (position - this.position) * radius; 
