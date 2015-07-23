@@ -31,6 +31,7 @@ public class LightSource : MonoBehaviour
 	//Declaring some things that will be used frequently
     private Vector2 position;
 	private List<int> indices;
+	private List<Edge> edges;
 	private static MaterialPropertyBlock properties;
 
 	//For updating visible occluders
@@ -53,6 +54,7 @@ public class LightSource : MonoBehaviour
 		//Save 2D position
         position = new Vector2(transform.position.x, transform.position.y);
 		indices = new List<int> ();
+		edges = new List<Edge> ();
 	
 		//Create new collections
         visibleOccluders = new Collider2D[shadowCapacity];
@@ -70,7 +72,7 @@ public class LightSource : MonoBehaviour
 		customLightMesh = light.CreateLightMesh (radius, subdivisions);
 
 		//Screen size texture for this light, we use mipmaps to downsample and get some blur
-		LightMap = new RenderTexture (Screen.width, Screen.height, 0);
+		LightMap = new RenderTexture (128 * (Screen.width / Screen.height), 128, 0);
 		LightMap.generateMips = true;
 		LightMap.useMipMap = true;
 		LightMap.mipMapBias = 2;
@@ -103,7 +105,7 @@ public class LightSource : MonoBehaviour
 		//Create the camera to capture light source and shadows
 		Camera cam = obj.AddComponent<Camera> ();
 		cam.CopyFrom (mainCamera);
-		cam.backgroundColor = Color.clear;
+		cam.backgroundColor = Color.clear;	
 		cam.cullingMask = 0;
 		cam.cullingMask = 1 << lightLayer;
 		cam.targetTexture = LightMap;
@@ -114,7 +116,6 @@ public class LightSource : MonoBehaviour
 	void OnRenderObject()
 	{
 		//Render one light
-		properties.Clear ();
 		properties.SetColor ("_Inner", inner);
 		properties.SetColor ("_Outer", outer);
 		properties.SetTexture ("_MainTex", lightCookie);
@@ -163,7 +164,6 @@ public class LightSource : MonoBehaviour
 			Mesh mesh = geometries[i];
 			mesh.Clear();
 
-            //Send old mesh object and the visible occluder
             PolygonCollider2D collider = visibleOccluders[i] as PolygonCollider2D;
 			Bounds bounds = collider.bounds;
 			bounds.Expand(0.2f);
@@ -177,7 +177,7 @@ public class LightSource : MonoBehaviour
             geometries[i] = mesh;
         }
     }
-
+	
     /// <summary>
     /// Creates the shadow geometry mesh from collider data and our light source.
     /// </summary>
@@ -188,7 +188,7 @@ public class LightSource : MonoBehaviour
 
         Vector2 position = collider.transform.position;
         Vector2[] path = collider.GetPath(0);
-        int[] indices = GetShadowProjectionIndices(position, ref path);
+		int[] indices = GetBackVertices (position, ref path);
 
 		//We have double the amount of vertices since we project the shadow outward
 		int vertCount = 2 * indices.Length;
@@ -199,9 +199,6 @@ public class LightSource : MonoBehaviour
 
 		Vector3[] vertices = new Vector3[vertCount];
 		int[] triangles = new int[3 * (vertCount - 2)];
-
-		//Sort the angles so that mesh build in correct order
-		SortAngles (position, ref indices, ref path);
 
 		int index = 0;
         foreach (int i in indices)
@@ -245,81 +242,67 @@ public class LightSource : MonoBehaviour
     }
 
 	/// <summary>
-	/// Sorts the angles.
+	/// Gets the back vertices.
 	/// </summary>
-	/// <param name="position">Position.</param>
-	/// <param name="indices">Indices.</param>
-	/// <param name="path">Path.</param>
-	protected void SortAngles(Vector2 position, ref int[] indices, ref Vector2[] path)
+	/// <returns>The back vertices.</returns>
+	/// <param name="center">Center.</param>
+	/// <param name="offsets">Offsets.</param>
+	private int[] GetBackVertices(Vector2 center, ref Vector2[] offsets)
 	{
-		int length = indices.Length;
+		edges.Clear();
+		//Projection vector is to eliminate "point walking" of the shadow geometry
+		Vector2 prev, curr, normal, dir, proj = this.position + (position - this.position) * radius;
+		int length = offsets.Length, i = length - 1;
+		//Get world position of the last collider point
+		prev = center + offsets [length - 1];
+		for (int j = 0; j < length; ++j) {
+			//Get world position of the current collider point
+			curr = center + offsets[j];
+			normal = PolygonUtils.GetNormal(prev, curr);
+			dir = prev - proj;
 
-		//The position on the radius in the direction from the light source to the occluder
-		Vector2 radiusPosition = this.position - (position - this.position) * radius;
-
-		do {
-			int n = 0;
-
-			for (int i = 1; i < length; ++i) {
-
-				Vector2 prev = path [indices [i - 1]] - radiusPosition;
-				Vector2 curr = path [indices [i]] - radiusPosition;
-
-				if (Mathf.Atan2(prev.y, prev.x) > Mathf.Atan2(curr.y, curr.x)) {
-
-					int temp = indices [i];
-					indices [i] = indices [i - 1];
-					indices [i - 1] = temp;
-
-					n = i;
-				}
+			//Add edge if the edge normal and direction to from the light to a edge point isn't visible
+			//Could check if visible to make shadows that overlaps the object
+			if (Vector2.Dot (dir.normalized, normal.normalized) > 0)
+			{ 
+				edges.Add(new Edge(i, j));
 			}
 
-			length = n;
+			prev = curr;
+			i = j;
+		}
 
-		} while (length != 0);
+		//Sort edge index pairs (1 2) (3 0) (0 1) => (0 1) (1 2) (3 0)
+		edges.Sort (delegate(Edge x, Edge y) {
+			if (x.FirstIndex == y.SecondIndex) return 1;
+			else if (x.SecondIndex == y.FirstIndex) return -1;
+			else return 0;
+		});
+
+		indices.Clear ();
+		//Add unique indices
+		foreach (Edge e in edges) {
+			
+			if(!indices.Contains(e.FirstIndex))
+				indices.Add(e.FirstIndex);
+			
+			if(!indices.Contains(e.SecondIndex))
+				indices.Add(e.SecondIndex);
+		}
+
+		return indices.ToArray();
 	}
 
-	/// <summary>
-	/// Gets the shadow projection indices.
-	/// </summary>
-	/// <returns>The shadow projection indices.</returns>
-	/// <param name="position">Position.</param>
-	/// <param name="path">Path.</param>
-    protected int[] GetShadowProjectionIndices(Vector2 position, ref Vector2[] path)
-    {
-        int length = path.Length;
+	//Keeps two indices for a collider edge
+	private struct Edge 
+	{ 
+		public int FirstIndex { get; private set; }
+		public int SecondIndex { get; private set; }
 
-		//Clear old indices
-		indices.Clear ();
-	
-        //Set previous point
-		int prevIndex = length - 1;
-        for (int i = 0; i < length; ++i)
-        {
-            //Find current edge normal
-            Vector2 edgeNormal = PolygonUtils.GetNormal(path[prevIndex], path[i]);
-
-			//Find offset and plane equation
-			float d = Vector2.Dot(edgeNormal, path[i] - position);
-
-			//Eliminate popping by finding points at the maximum radius
-			float plane = Vector2.Dot(edgeNormal, this.position + (position - this.position) * radius);
-		
-			//Sign determines back or front
-			if (Mathf.Sign(plane + d) > 0.05f)
-			{
-			
-				if (!indices.Contains(prevIndex))
-					indices.Add(prevIndex);
-
-				if (!indices.Contains(i))
-					indices.Add(i);
-			} 
-		
-			prevIndex = i;
-        }
-
-        return indices.ToArray();
-    }
+		public Edge(int firstIndex, int secondIndex)
+		{
+			FirstIndex = firstIndex;
+			SecondIndex = secondIndex;
+		}
+	}
 }
