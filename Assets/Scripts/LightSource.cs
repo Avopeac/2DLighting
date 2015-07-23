@@ -116,9 +116,13 @@ public class LightSource : MonoBehaviour
 	void OnRenderObject()
 	{
 		//Render one light
+        properties.Clear();
 		properties.SetColor ("_Inner", inner);
 		properties.SetColor ("_Outer", outer);
 		properties.SetTexture ("_MainTex", lightCookie);
+        //lightMaterial.SetColor("_Inner", inner);
+        //lightMaterial.SetColor("_Outer", outer);
+        //lightMaterial.SetTexture("_MainTex", lightCookie);
 		Graphics.DrawMesh (customLightMesh, position, transform.rotation, lightMaterial, lightLayer, lightCamera, 0, properties);
 
 		//Then render all shadow geometry
